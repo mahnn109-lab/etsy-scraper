@@ -42,11 +42,16 @@ def get_etsy_data(keyword):
     
     with sync_playwright() as p:
         try:
-            # 启动浏览器 (针对云环境优化)
-            browser = p.chromium.launch(
-                headless=True, 
-                args=['--no-sandbox', '--disable-dev-shm-usage']
-            )
+           # 智能判断：如果是云端就用系统浏览器，如果是本地就用自带的
+import os
+sys_browser = "/usr/bin/chromium"
+launch_path = sys_browser if os.path.exists(sys_browser) else None
+
+browser = p.chromium.launch(
+    headless=True,
+    executable_path=launch_path,  # 关键修复在这里
+    args=['--no-sandbox', '--disable-dev-shm-usage']
+)
             context = browser.new_context(
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             )
