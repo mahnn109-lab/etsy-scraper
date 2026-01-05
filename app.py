@@ -143,4 +143,5 @@ if run_btn:
                     st.markdown(f"[查看原网页]({row['link']})")
         
         st.divider()
-        with st
+        with st.expander("查看详细数据表"):
+            st.dataframe(df)
