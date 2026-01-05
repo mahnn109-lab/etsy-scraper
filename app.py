@@ -114,4 +114,32 @@ with st.sidebar:
     run_btn = st.button("开始分析", type="primary")
 
 if run_btn:
-    with st.spinner
+    with st.spinner('正在分析市场数据...'):
+        df_list = get_etsy_data(keyword)
+        df = pd.DataFrame(df_list)
+        
+        col1, col2, col3 = st.columns(3)
+        avg_price = df['price'].mean()
+        max_price = df['price'].max()
+        min_price = df['price'].min()
+        
+        col1.metric("市场均价", f"${avg_price:.2f}")
+        col2.metric("最高价", f"${max_price:.2f}")
+        col3.metric("最低价", f"${min_price:.2f}")
+        
+        st.divider()
+        st.subheader(f"🖼️ '{keyword}' 热门款式")
+        
+        cols = st.columns(4)
+        for idx, row in df.iterrows():
+            with cols[idx % 4]:
+                if row['image']:
+                    st.image(row['image'], use_container_width=True)
+                st.markdown(f"**${row['price']}**")
+                st.caption(row['title'][:30] + "...")
+                if row['link']:
+                    st.markdown(f"[查看原网页]({row['link']})")
+        
+        st.divider()
+        with st.expander("查看详细数据表"):
+            st.dataframe(df)
