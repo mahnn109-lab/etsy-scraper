@@ -42,7 +42,7 @@ def get_etsy_data(keyword):
     
     with sync_playwright() as p:
         try:
-            # --- 智能浏览器启动逻辑 (这里修复了缩进) ---
+            # --- 智能浏览器启动逻辑 (修复版) ---
             sys_browser = "/usr/bin/chromium"
             if os.path.exists(sys_browser):
                 launch_path = sys_browser
@@ -66,9 +66,7 @@ def get_etsy_data(keyword):
             time.sleep(random.uniform(2, 4))
             
             items = page.query_selector_all('ol li.wt-list-unstyled')
-            
             if not items or len(items) < 2:
-                # 尝试另一种常见的选择器结构，以防 Etsy 改版
                 items = page.query_selector_all('.v2-listing-card')
             
             if not items:
@@ -78,13 +76,10 @@ def get_etsy_data(keyword):
                 try:
                     title_el = item.query_selector('h3')
                     title = title_el.inner_text().strip() if title_el else "Unknown Product"
-                    
                     price_el = item.query_selector('.currency-value')
                     price = float(price_el.inner_text().replace(',', '')) if price_el else 0.0
-                    
                     img_el = item.query_selector('img')
                     img_src = img_el.get_attribute('src') if img_el else ""
-                    
                     link_el = item.query_selector('a')
                     link = link_el.get_attribute('href') if link_el else ""
 
@@ -119,32 +114,4 @@ with st.sidebar:
     run_btn = st.button("开始分析", type="primary")
 
 if run_btn:
-    with st.spinner('正在分析市场数据...'):
-        df_list = get_etsy_data(keyword)
-        df = pd.DataFrame(df_list)
-        
-        col1, col2, col3 = st.columns(3)
-        avg_price = df['price'].mean()
-        max_price = df['price'].max()
-        min_price = df['price'].min()
-        
-        col1.metric("市场均价", f"${avg_price:.2f}")
-        col2.metric("最高价", f"${max_price:.2f}")
-        col3.metric("最低价", f"${min_price:.2f}")
-        
-        st.divider()
-        st.subheader(f"🖼️ '{keyword}' 热门款式")
-        
-        cols = st.columns(4)
-        for idx, row in df.iterrows():
-            with cols[idx % 4]:
-                if row['image']:
-                    st.image(row['image'], use_container_width=True)
-                st.markdown(f"**${row['price']}**")
-                st.caption(row['title'][:30] + "...")
-                if row['link']:
-                    st.markdown(f"[查看原网页]({row['link']})")
-        
-        st.divider()
-        with st.expander("查看详细数据表"):
-            st.dataframe(df)
+    with st.spinner
