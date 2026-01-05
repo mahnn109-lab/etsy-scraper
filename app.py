@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 import time
-import os  # 把 import 移到最上面，这是最规范的写法
+import os  # 移到了最这里，彻底杜绝缩进错误
 from playwright.sync_api import sync_playwright
 
 # --- 页面基础配置 ---
@@ -42,19 +42,20 @@ def get_etsy_data(keyword):
     
     with sync_playwright() as p:
         try:
-            # --- 智能浏览器启动逻辑 (修复版) ---
+            # --- 智能浏览器启动逻辑 ---
             sys_browser = "/usr/bin/chromium"
             if os.path.exists(sys_browser):
                 launch_path = sys_browser
             else:
                 launch_path = None
-
+            
+            # 启动浏览器
             browser = p.chromium.launch(
                 headless=True,
                 executable_path=launch_path,
                 args=['--no-sandbox', '--disable-dev-shm-usage']
             )
-            # ----------------------------------------
+            # ------------------------
 
             context = browser.new_context(
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -65,6 +66,7 @@ def get_etsy_data(keyword):
             page.goto(url, timeout=30000)
             time.sleep(random.uniform(2, 4))
             
+            # 尝试抓取
             items = page.query_selector_all('ol li.wt-list-unstyled')
             if not items or len(items) < 2:
                 items = page.query_selector_all('.v2-listing-card')
@@ -141,5 +143,4 @@ if run_btn:
                     st.markdown(f"[查看原网页]({row['link']})")
         
         st.divider()
-        with st.expander("查看详细数据表"):
-            st.dataframe(df)
+        with st
