@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import random
 import time
-import os  # 移到了最这里，彻底杜绝缩进错误
+import os
+import re
 from playwright.sync_api import sync_playwright
 
 # --- 页面基础配置 ---
@@ -40,14 +41,14 @@ def get_etsy_data(keyword):
     data = []
     url = f"https://www.etsy.com/search?q={keyword.replace(' ', '+')}"
     
+    # 使用 sync_playwright 启动
     with sync_playwright() as p:
+        browser = None
         try:
             # --- 智能浏览器启动逻辑 ---
+            # 优先检查系统路径，如果没有则让 playwright 自己找
             sys_browser = "/usr/bin/chromium"
-            if os.path.exists(sys_browser):
-                launch_path = sys_browser
-            else:
-                launch_path = None
+            launch_path = sys_browser if os.path.exists(sys_browser) else None
             
             # 启动浏览器
             browser = p.chromium.launch(
@@ -55,7 +56,6 @@ def get_etsy_data(keyword):
                 executable_path=launch_path,
                 args=['--no-sandbox', '--disable-dev-shm-usage']
             )
-            # ------------------------
 
             context = browser.new_context(
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -78,10 +78,20 @@ def get_etsy_data(keyword):
                 try:
                     title_el = item.query_selector('h3')
                     title = title_el.inner_text().strip() if title_el else "Unknown Product"
+                    
+                    # 价格解析优化：处理货币符号和逗号
                     price_el = item.query_selector('.currency-value')
-                    price = float(price_el.inner_text().replace(',', '')) if price_el else 0.0
+                    if price_el:
+                        price_text = price_el.inner_text().replace(',', '')
+                        # 使用正则提取数字部分
+                        price_match = re.search(r'\d+\.?\d*', price_text)
+                        price = float(price_match.group()) if price_match else 0.0
+                    else:
+                        price = 0.0
+                        
                     img_el = item.query_selector('img')
                     img_src = img_el.get_attribute('src') if img_el else ""
+                    
                     link_el = item.query_selector('a')
                     link = link_el.get_attribute('href') if link_el else ""
 
@@ -92,14 +102,15 @@ def get_etsy_data(keyword):
                             "image": img_src,
                             "link": link
                         })
-                except:
+                except Exception:
                     continue
             
-            browser.close()
-            
         except Exception as e:
-            st.error(f"Etsy 反爬虫拦截或云端环境限制 ({e})。已自动切换至【演示模式】。")
+            st.error(f"Etsy 访问受限 ({e})。已自动切换至【演示模式】。")
             return generate_mock_data(keyword)
+        finally:
+            if browser:
+                browser.close()
             
     if not data:
         return generate_mock_data(keyword)
@@ -120,28 +131,33 @@ if run_btn:
         df_list = get_etsy_data(keyword)
         df = pd.DataFrame(df_list)
         
-        col1, col2, col3 = st.columns(3)
-        avg_price = df['price'].mean()
-        max_price = df['price'].max()
-        min_price = df['price'].min()
-        
-        col1.metric("市场均价", f"${avg_price:.2f}")
-        col2.metric("最高价", f"${max_price:.2f}")
-        col3.metric("最低价", f"${min_price:.2f}")
-        
-        st.divider()
-        st.subheader(f"🖼️ '{keyword}' 热门款式")
-        
-        cols = st.columns(4)
-        for idx, row in df.iterrows():
-            with cols[idx % 4]:
-                if row['image']:
-                    st.image(row['image'], use_container_width=True)
-                st.markdown(f"**${row['price']}**")
-                st.caption(row['title'][:30] + "...")
-                if row['link']:
-                    st.markdown(f"[查看原网页]({row['link']})")
-        
-        st.divider()
-        with st.expander("查看详细数据表"):
-            st.dataframe(df)
+        if not df.empty:
+            col1, col2, col3 = st.columns(3)
+            avg_price = df['price'].mean()
+            max_price = df['price'].max()
+            min_price = df['price'].min()
+            
+            col1.metric("市场均价", f"${avg_price:.2f}")
+            col2.metric("最高价", f"${max_price:.2f}")
+            col3.metric("最低价", f"${min_price:.2f}")
+            
+            st.divider()
+            st.subheader(f"🖼️ '{keyword}' 热门款式")
+            
+            cols = st.columns(4)
+            for idx, row in df.iterrows():
+                with cols[idx % 4]:
+                    if row['image']:
+                        st.image(row['image'], use_container_width=True)
+                    st.markdown(f"**${row['price']}**")
+                    # 安全截断标题
+                    display_title = (row['title'][:30] + "...") if row['title'] else "No Title"
+                    st.caption(display_title)
+                    if row['link']:
+                        st.markdown(f"[查看原网页]({row['link']})")
+            
+            st.divider()
+            with st.expander("查看详细数据表"):
+                st.dataframe(df)
+        else:
+            st.warning("未找到相关数据，请尝试更换关键词。")
